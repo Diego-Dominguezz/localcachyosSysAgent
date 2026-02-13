@@ -1,13 +1,30 @@
 {
-  "name": "ai-stack",
+  "name": "local-ai-sysagent",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "An intelligent system administration agent using local LLMs (via Ollama) to help configure and troubleshoot Linux systems",
+  "main": "agent.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node agent.js",
+    "test": "echo \"No tests specified yet\" && exit 0"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "ai",
+    "llm",
+    "ollama",
+    "system-administration",
+    "linux",
+    "automation",
+    "devops",
+    "sysadmin"
+  ],
+  "author": "Diego Dominguez",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Diego-Dominguezz/localcachyosSysAgent.git"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
 }

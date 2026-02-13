@@ -1,7 +1,20 @@
 const OLLAMA_URL = "http://127.0.0.1:11434/api/generate";
 
-// 👉 MODELO AQUÍ
-// Usa "mistral" (≈4 GB, excelente balance)
+// ========================================
+// RECOMMENDED MODELS FOR SYSTEM TASKS
+// ========================================
+// For best results with system administration and troubleshooting,
+// use reasoning-capable models:
+//
+// 1. qwen2.5-coder:32b    - Best for complex system tasks (19GB)
+// 2. deepseek-r1:8b       - Excellent reasoning capabilities (4.9GB) 
+// 3. deepseek-coder:33b   - Great for debugging issues (19GB)
+// 4. codestral:22b        - Good balance of speed/capability (13GB)
+// 5. mistral:7b           - Lightweight, faster but less capable (4.1GB)
+//
+// Install with: ollama pull <model-name>
+// ========================================
+
 const MODEL = "mistral";
 
 async function askLLM(systemPrompt, userInput) {
@@ -25,21 +38,21 @@ ASSISTANT:
     });
 
     if (!response.ok) {
-      console.error("❌ Error HTTP:", response.status);
+      console.error("❌ HTTP Error:", response.status);
       return null;
     }
 
     const data = await response.json();
 
     if (!data || !data.response) {
-      console.error("❌ Respuesta inválida de Ollama:", data);
+      console.error("❌ Invalid response from Ollama:", data);
       return null;
     }
 
     return data.response;
 
   } catch (err) {
-    console.error("❌ Error conectando con Ollama:", err.message);
+    console.error("❌ Error connecting to Ollama:", err.message);
     return null;
   }
 }
