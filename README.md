@@ -174,7 +174,13 @@ Contributions are welcome! Feel free to:
 
 ## License
 
-ISC
+ISC - See [LICENSE](LICENSE) file for details.
+
+## Documentation
+
+- **[Installation Guide](INSTALL.md)** - Detailed step-by-step installation instructions
+- **[Usage Examples](EXAMPLES.md)** - Practical examples and common use cases  
+- **[Configuration Guide](CONFIG.md)** - Advanced configuration and customization options
 
 ## Security Note
 
