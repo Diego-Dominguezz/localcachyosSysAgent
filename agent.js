@@ -1,6 +1,3 @@
-process.env.OLLAMA_USE_ROCM = "1";
-process.env.HSA_OVERRIDE_GFX_VERSION = "11.0.0";
-
 const fs = require("fs");
 const readline = require("readline");
 const { spawn, exec } = require("child_process");
@@ -33,23 +30,16 @@ function analyzeError(cmd, exitCode, stdout, stderr) {
   // Permission denied → add sudo
   if (output.includes("permission denied") || output.includes("permiso denegado")) {
     if (!cmd.startsWith("sudo ")) {
-      analysis.suggestion = `Command needs root. Corrected: sudo ${cmd}`;
+      analysis.suggestion = `Command needs root privileges. Try: sudo ${cmd}`;
     } else {
       analysis.suggestion = "Command failed even with sudo. Check if the path exists and you have the right permissions.";
     }
   }
 
-  // sbctl enroll-keys OptionROM issue
-  if (output.includes("optionrom") || output.includes("option rom") || output.includes("option_rom")) {
-    analysis.suggestion = 
-      "sbctl found OptionROMs. Since this is a dual-boot with Windows, use: sudo sbctl enroll-keys --microsoft";
-    analysis.critical = true;
-  }
-
   // Command not found
-  if (output.includes("command not found") || output.includes("no existe")) {
+  if (output.includes("command not found") || output.includes("no existe") || output.includes("not found")) {
     const cmdName = cmd.replace(/^sudo\s+/, "").split(/\s+/)[0];
-    analysis.suggestion = `'${cmdName}' is not installed. Install with: sudo pacman -S ${cmdName}`;
+    analysis.suggestion = `'${cmdName}' is not installed. Install it using your system's package manager.`;
   }
 
   // Unknown subcommand
@@ -58,20 +48,20 @@ function analyzeError(cmd, exitCode, stdout, stderr) {
     analysis.suggestion = `Invalid subcommand. Run '${cmdName} --help' to see valid options.`;
   }
 
-  // Package not found in pacman
-  if (output.includes("target not found")) {
-    analysis.suggestion = "Package doesn't exist in repos. Check the correct package name.";
+  // Package not found (generic)
+  if (output.includes("target not found") || output.includes("unable to locate package") || output.includes("no package")) {
+    analysis.suggestion = "Package doesn't exist in repositories. Check the correct package name.";
   }
 
   // Already up to date / skipping
-  if (output.includes("skipping") && output.includes("same") && output.includes("already")) {
-    analysis.suggestion = "Already up to date. This is not a real failure, just informational.";
+  if (output.includes("skipping") && output.includes("same") || output.includes("already up to date") || output.includes("already installed")) {
+    analysis.suggestion = "Already up to date or installed. This is not a real failure, just informational.";
     analysis.critical = false;
   }
 
-  // Keys already created
-  if (output.includes("already been created")) {
-    analysis.suggestion = "Keys already exist. Skip this step and proceed to enrollment.";
+  // Keys or certificates already exist
+  if (output.includes("already been created") || output.includes("already exists")) {
+    analysis.suggestion = "Resource already exists. This may not be an error - check if you can skip this step.";
   }
 
   return analysis;
@@ -139,14 +129,13 @@ async function gatherSystemContext() {
   const context = {};
 
   const commands = {
-    bootctl: "sudo bootctl status 2>&1",
-    grubInstalled: "which grub-mkconfig 2>&1 || echo 'not found'",
-    efiEntries: "efibootmgr 2>&1 || echo 'error'",
-    esp: "findmnt -n /boot/efi 2>&1 || findmnt -n /boot 2>&1 || echo 'not found'",
-    sbctl: "sbctl status 2>&1 || echo 'not installed'",
-    sbctlFiles: "sudo sbctl list-files 2>&1 || echo 'none'",
-    kernels: "ls /boot/vmlinuz-* 2>&1 || echo 'none'",
-    loaderEntries: "ls /boot/efi/loader/entries/ 2>&1 || ls /boot/loader/entries/ 2>&1 || echo 'none'"
+    os: "cat /etc/os-release 2>&1 || echo 'unknown'",
+    kernel: "uname -r 2>&1 || echo 'unknown'",
+    packageManager: "command -v apt || command -v dnf || command -v pacman || command -v yum || echo 'unknown'",
+    diskUsage: "df -h / 2>&1 || echo 'error'",
+    memInfo: "free -h 2>&1 || echo 'error'",
+    systemd: "systemctl --version 2>&1 | head -n1 || echo 'not available'",
+    shell: "echo $SHELL 2>&1 || echo 'unknown'"
   };
 
   for (const [key, cmd] of Object.entries(commands)) {
@@ -156,11 +145,6 @@ async function gatherSystemContext() {
     } catch (e) {
       context[key] = "error: " + e.message.substring(0, 100);
     }
-  }
-
-  // Learn key tools
-  for (const tool of ["sbctl", "bootctl", "efibootmgr"]) {
-    if (!commandKnowledge[tool]) await learnCommand(tool);
   }
 
   return context;
@@ -174,7 +158,7 @@ function buildSystemPrompt(context) {
     ? failedCommands.map(f => `- "${f.command}" FAILED: ${f.error}\n  FIX: ${f.fix || "unknown"}`).join("\n")
     : "none";
 
-  return `You are an Arch Linux expert configuring CachyOS.
+  return `You are a Linux system administration expert helping users configure and troubleshoot their systems.
 
 === LIVE SYSTEM STATE ===
 ${JSON.stringify(context, null, 2)}
@@ -183,33 +167,30 @@ ${JSON.stringify(context, null, 2)}
 ${failedList}
 
 === YOUR GOAL ===
-Help the user step by step. The user wants to:
-1. Set up systemd-boot as the bootloader (ALREADY INSTALLED per bootctl output)
-2. Set up Secure Boot with sbctl
-3. Eventually remove GRUB
+Help the user step by step with their system administration tasks.
 
 === REASONING RULES ===
 Before suggesting ANY command you MUST:
 1. Check the FAILED COMMANDS list - never repeat a failed command without fixing it
 2. Check the LIVE SYSTEM STATE - don't suggest installing something already installed
 3. If a command failed, your FIRST sentence must explain WHY it failed and HOW you fixed it
-4. Read error messages literally - if it says "use --microsoft flag", then use that flag
+4. Read error messages literally - if it says "use --flag", then use that flag
+5. Consider the user's Linux distribution and adjust package manager commands accordingly
 
-=== SPECIFIC FIXES YOU MUST KNOW ===
-- "sbctl enroll-keys" alone FAILS with OptionROM error on systems with dedicated GPUs
-  CORRECT: sudo sbctl enroll-keys --microsoft
-- "bootctl status" without sudo shows "Permiso denegado" for some fields
-  CORRECT: sudo bootctl status
-- "bootctl update" exit code 1 when already current is NOT a real error
-- systemd-boot package does NOT exist - bootctl is part of systemd
-- NEVER reinstall GRUB - the user wants to REMOVE it
+=== GENERAL BEST PRACTICES ===
+- Always verify current system state before making changes
+- Suggest using appropriate package manager (apt, dnf, pacman, yum, etc.) based on system
+- Use sudo only when necessary for system-level operations
+- Explain what each command does in simple terms
+- Provide rollback instructions when making critical changes
+- Never assume a specific bootloader, init system, or configuration
 
 === COMMAND FORMAT ===
 - Put commands in \`\`\`bash blocks
 - Each line = one runnable command
 - NO if/then/fi/for/while/do/done
 - NO fake prompts
-- Always use sudo for system commands
+- Use sudo for system commands when needed
 
 === RESPONSE FORMAT ===
 1. ONE sentence: what happened (acknowledge errors if any)
