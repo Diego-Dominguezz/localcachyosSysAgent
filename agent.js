@@ -54,7 +54,7 @@ function analyzeError(cmd, exitCode, stdout, stderr) {
   }
 
   // Already up to date / skipping
-  if (output.includes("skipping") && output.includes("same") || output.includes("already up to date") || output.includes("already installed")) {
+  if ((output.includes("skipping") && output.includes("same")) || output.includes("already up to date") || output.includes("already installed")) {
     analysis.suggestion = "Already up to date or installed. This is not a real failure, just informational.";
     analysis.critical = false;
   }

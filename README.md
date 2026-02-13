@@ -50,6 +50,8 @@ ollama pull mistral:7b
 ### 3. Clone and Install
 
 ```bash
+# Note: Repository name contains "cachyos" for historical reasons,
+# but the agent now works on all Linux distributions
 git clone https://github.com/Diego-Dominguezz/localcachyosSysAgent.git
 cd localcachyosSysAgent
 npm install

@@ -93,6 +93,8 @@ Choose and download a model. **For system administration tasks, reasoning models
 ## Step 5: Clone the Repository
 
 ```bash
+# Note: Repository name contains "cachyos" for historical reasons,
+# but the agent now works on all Linux distributions
 git clone https://github.com/Diego-Dominguezz/localcachyosSysAgent.git
 cd localcachyosSysAgent
 ```
