@@ -2,6 +2,8 @@
 
 An intelligent system administration agent that uses local LLMs (via Ollama) to help configure and troubleshoot Linux systems. The agent can suggest and execute commands with your approval, learn from failures, and provide intelligent recommendations.
 
+**This was created to fix an issue with cachy os system, do not support nor encourage usage and will not provide assistance nor support on issues with this tool, use it on your own risk**
+
 ## Features
 
 - 🤖 **AI-Powered Assistance**: Uses local LLMs through Ollama for intelligent system configuration help
